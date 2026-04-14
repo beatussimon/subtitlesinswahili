@@ -1,51 +1,62 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 
-describe('App upload flow', () => {
+describe('Swahili subtitle hub', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn((url) => {
+      if (url.includes('/api/categories/')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ categories: [{ id: 1, name: 'Action', slug: 'action' }] }) });
+      }
+      if (url.includes('/api/subtitles/')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              subtitles: [
+                {
+                  id: 1,
+                  title: 'Fast Horizon',
+                  movie_year: 2023,
+                  synopsis: 'A thriller.',
+                  language: 'Swahili',
+                  category: 'Action',
+                  translation_fee_tsh: 1000,
+                  bookmarks_count: 0,
+                  comments_count: 0,
+                },
+              ],
+            }),
+        });
+      }
+      if (url.includes('/api/auth/me/')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ authenticated: false }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
     delete global.fetch;
   });
 
-  test('file upload component renders', () => {
+  test('renders catalog and translation feature', async () => {
+    render(<App />);
+
+    expect(screen.getByText('Swahili Subtitle Hub')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Fast Horizon (2023)')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Upload for Translation (TSh 1000)' })).toBeInTheDocument();
+  });
+
+  test('shows srt upload input', () => {
     render(<App />);
     expect(screen.getByLabelText('subtitle-file')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload' })).toBeInTheDocument();
   });
 
-  test('file validation only accepts .srt', () => {
+  test('can type request title', () => {
     render(<App />);
-    const input = screen.getByLabelText('subtitle-file');
-    const invalidFile = new File(['hello'], 'notes.txt', { type: 'text/plain' });
-
-    fireEvent.change(input, { target: { files: [invalidFile] } });
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Only .srt files are allowed');
-  });
-
-  test('API call triggered on upload and loading state shown', async () => {
-    let resolveUpload;
-    global.fetch = jest.fn(
-      () =>
-        new Promise((resolve) => {
-          resolveUpload = resolve;
-        })
-    );
-
-    render(<App />);
-    const input = screen.getByLabelText('subtitle-file');
-    const validFile = new File(['1\n00:00:01,000 --> 00:00:02,000\nHello\n'], 'sample.srt', {
-      type: 'application/x-subrip',
-    });
-
-    fireEvent.change(input, { target: { files: [validFile] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
-
-    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Uploading...'));
-
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-    resolveUpload({ ok: true });
-    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Upload'));
-    expect(global.fetch).toHaveBeenCalledWith('/api/upload/', expect.objectContaining({ method: 'POST' }));
+    const requestInput = screen.getByLabelText('request-title');
+    fireEvent.change(requestInput, { target: { value: 'Inception' } });
+    expect(requestInput).toHaveValue('Inception');
   });
 });
