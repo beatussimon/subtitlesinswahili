@@ -19,7 +19,13 @@ describe('App upload flow', () => {
   });
 
   test('API call triggered on upload and loading state shown', async () => {
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true }));
+    let resolveUpload;
+    global.fetch = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve;
+        })
+    );
 
     render(<App />);
     const input = screen.getByLabelText('subtitle-file');
@@ -33,6 +39,8 @@ describe('App upload flow', () => {
     expect(screen.getByRole('button')).toHaveTextContent('Uploading...');
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    resolveUpload({ ok: true });
+    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Upload'));
     expect(global.fetch).toHaveBeenCalledWith('/api/upload/', expect.objectContaining({ method: 'POST' }));
   });
 });
