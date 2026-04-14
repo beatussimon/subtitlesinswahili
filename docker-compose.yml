@@ -1,0 +1,87 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: subtitles-backend
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      DEBUG: ${DEBUG:-0}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    depends_on:
+      - redis
+    ports:
+      - '8000:8000'
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: subtitles-celery
+    command: celery -A app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      - backend
+      - redis
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: subtitles-frontend
+    depends_on:
+      - backend
+    ports:
+      - '3000:80'
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: subtitles-redis
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: subtitles-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - '11434:11434'
+    restart: unless-stopped
+    networks:
+      - app_net
+
+volumes:
+  media_data:
+  static_data:
+  ollama_data:
+
+networks:
+  app_net:
+    driver: bridge
