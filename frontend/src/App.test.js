@@ -2,6 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 
 describe('App upload flow', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+    delete global.fetch;
+  });
+
   test('file upload component renders', () => {
     render(<App />);
     expect(screen.getByLabelText('subtitle-file')).toBeInTheDocument();
@@ -19,7 +24,13 @@ describe('App upload flow', () => {
   });
 
   test('API call triggered on upload and loading state shown', async () => {
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true }));
+    let resolveUpload;
+    global.fetch = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve;
+        })
+    );
 
     render(<App />);
     const input = screen.getByLabelText('subtitle-file');
@@ -30,9 +41,11 @@ describe('App upload flow', () => {
     fireEvent.change(input, { target: { files: [validFile] } });
     fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
 
-    expect(screen.getByRole('button')).toHaveTextContent('Uploading...');
+    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Uploading...'));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    resolveUpload({ ok: true });
+    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Upload'));
     expect(global.fetch).toHaveBeenCalledWith('/api/upload/', expect.objectContaining({ method: 'POST' }));
   });
 });

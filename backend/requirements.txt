@@ -1,7 +1,7 @@
-Django==5.1.5
-celery==5.4.0
-redis==5.2.1
-gunicorn==23.0.0
-requests==2.32.3
-pytest==8.3.4
-pytest-django==4.9.0
+Django>=5.1,<5.2
+celery>=5.4,<5.5
+redis>=5.2,<5.3
+gunicorn>=23.0,<24.0
+requests>=2.32,<2.33
+pytest>=8.3,<8.4
+pytest-django>=4.9,<4.10
